@@ -1,12 +1,9 @@
+// top/yyf/psych_support/entity/Assessment.java
 package top.yyf.psych_support.entity;
 
 import com.baomidou.mybatisplus.annotation.*;
-import com.fasterxml.jackson.annotation.JsonFormat;
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.Data;
-
 import java.time.LocalDateTime;
-import java.util.Map;
 
 @Data
 @TableName("assessment")
@@ -15,44 +12,32 @@ public class Assessment {
     @TableId(type = IdType.AUTO)
     private Long id;
 
-    private String title;
-
+    private String name;
     private String description;
+    private String instructions;
+    private String category;
+    private Boolean isActive; // 对应 is_active
 
-    private Integer type; // 0=抑郁, 1=焦虑, 2=压力...
-
-    @TableField("is_active")
-    private Boolean active;
-
-    /**
-     * 分数解释 JSON 字段
-     * 数据库类型：JSON
-     * 示例：{"0-4":"无抑郁症状","5-9":"轻度抑郁"}
-     */
     @TableField(typeHandler = com.baomidou.mybatisplus.extension.handlers.JacksonTypeHandler.class)
-    private Map<String, String> scoreExplain;
-
-    @TableField(fill = FieldFill.INSERT)
-    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
-    private LocalDateTime createdAt;
+    private ScoringRules scoringRules; // JSON 字段 → 自定义对象
 
     @TableLogic
-    private Integer deleted;
+    private Boolean deleted;
 
-    // ========== 非数据库字段（用于前端展示） ==========
+    private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
 
-    /**
-     * 是否启用（语义化布尔值）
-     */
-    public Boolean getIsActive() {
-        return active != null && active;
-    }
+    // JSON 内部类（可选：也可单独建类）
+    @Data
+    public static class ScoringRules {
+        private Range[] ranges;
 
-    /**
-     * 隐藏内部字段，避免序列化冗余
-     */
-    @JsonIgnore
-    public Boolean getActive() {
-        return active;
+        @Data
+        public static class Range {
+            private Integer min;
+            private Integer max;
+            private String level;
+            private String advice;
+        }
     }
 }
