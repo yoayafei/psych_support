@@ -2,6 +2,7 @@
 package top.yyf.psych_support.controller;
 
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -16,6 +17,7 @@ import top.yyf.psych_support.util.PasswordUtil;
 
 import java.util.List;
 
+@Tag(name = "用户", description = "用户模块相关接口")
 @Slf4j
 @Validated
 @RestController

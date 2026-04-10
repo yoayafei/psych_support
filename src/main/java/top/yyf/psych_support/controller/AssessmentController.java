@@ -1,6 +1,7 @@
 package top.yyf.psych_support.controller;
 
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -19,6 +20,7 @@ import top.yyf.psych_support.service.AssessmentService;
 import java.util.List;
 
 
+@Tag(name = "心理测评", description = "心理测评模块相关接口")
 @RestController
 @RequestMapping("/api/assessments")
 @RequiredArgsConstructor
