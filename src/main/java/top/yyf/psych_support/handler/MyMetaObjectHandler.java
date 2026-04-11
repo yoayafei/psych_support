@@ -22,6 +22,13 @@ public class MyMetaObjectHandler implements MetaObjectHandler {
         // 自动填充更新时间 - 使用实体类字段名 updatedAt
         this.strictInsertFill(metaObject, "updatedAt", LocalDateTime.class, LocalDateTime.now());
         log.info("填充updatedAt: {}", LocalDateTime.now());
+
+        if (metaObject.hasSetter("deleted")) {
+            Object deleted = getFieldValByName("deleted", metaObject);
+            if (deleted == null) {
+                setFieldValByName("deleted", (byte) 0, metaObject);
+            }
+        }
     }
 
     @Override

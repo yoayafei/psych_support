@@ -10,49 +10,37 @@ import java.time.LocalDateTime;
 @Data
 @TableName("mood_diary")
 public class MoodDiary {
-
-    @TableId(type = IdType.AUTO)
+    @TableId(value = "id", type = IdType.AUTO)
     private Long id;
 
-    @TableField("user_id")
     private Long userId;
 
-    private String content;
+    private String content; // 日记内容
 
-    @TableField("mood_tag")
-    private String moodTag;
+    private String moodTag; // 情绪标签
 
-    @TableField("mood_level")
-    private Integer moodLevel; // 1-5 强度
+    private Byte moodLevel; // 情绪强度 1-5
 
-    @TableField("image_url")
-    private String imageUrl;
+    private String imageUrl; // 图片URL
 
-    @TableField("is_public")
-    private Integer isPublic; // 0=私密, 1=待审核, 2=已公开
+    private Byte isPublic; // 0=私密,1=待审核,2=已公开
 
-    @TableField(fill = FieldFill.INSERT)
-    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+    @TableField(fill = FieldFill.INSERT) // 插入时自动填充
     private LocalDateTime createdAt;
 
-    // ========== 非数据库字段 ==========
+    @TableField(fill = FieldFill.INSERT_UPDATE) // 插入和更新时都填充
+    private LocalDateTime updatedAt;
 
-    @TableField(exist = false)
-    private User user;
+    @TableLogic // 逻辑删除字段
+    @TableField(fill = FieldFill.INSERT)
+    private Byte deleted; // 0=未删除, 1=已删除
 
-    /**
-     * 公开状态语义化（用于前端）
-     */
-    @JsonGetter("publicStatus")
-    public String getPublicStatus() {
-        if (isPublic == null) {
-            return "未知";
-        }
-        switch (isPublic) {
-            case 0: return "私密";
-            case 1: return "审核中";
-            case 2: return "已公开";
-            default: return "未知";
-        }
+    // 添加辅助方法
+    public Boolean getIsPublicDisplay() {
+        return this.isPublic != null && this.isPublic == 2; // 已公开
+    }
+
+    public Boolean getIsDeleted() {
+        return this.deleted != null && this.deleted == 1;
     }
 }
