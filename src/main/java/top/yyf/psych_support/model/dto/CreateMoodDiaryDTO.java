@@ -11,6 +11,7 @@ public class CreateMoodDiaryDTO {
     @NotBlank(message = "日记内容不能为空")
     private String content;
 
+    @NotBlank(message = "情绪标签不能为空")
     private String moodTag;
 
     @NotNull(message = "情绪强度不能为空")

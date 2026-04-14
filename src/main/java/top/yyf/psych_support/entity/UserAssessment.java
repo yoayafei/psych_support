@@ -2,12 +2,13 @@
 package top.yyf.psych_support.entity;
 
 import com.baomidou.mybatisplus.annotation.*;
+import com.baomidou.mybatisplus.extension.handlers.JacksonTypeHandler;
 import lombok.Data;
 import java.time.LocalDateTime;
 import java.util.List;
 
 @Data
-@TableName("user_assessment")
+@TableName(value = "user_assessment", autoResultMap = true)  // ✅ 添加 autoResultMap = true
 public class UserAssessment {
 
     @TableId(type = IdType.AUTO)
@@ -18,13 +19,13 @@ public class UserAssessment {
     private Integer totalScore;
     private String resultLevel;
 
-    @TableField(typeHandler = com.baomidou.mybatisplus.extension.handlers.JacksonTypeHandler.class)
-    private List<AnswerItem> rawData; // JSON → List
+    // ✅ 确保这个注解正确
+    @TableField(typeHandler = JacksonTypeHandler.class)
+    private List<AnswerItem> rawData;
 
     private LocalDateTime completedAt;
     private LocalDateTime createdAt;
 
-    // 答题项内部类
     @Data
     public static class AnswerItem {
         private Long questionId;

@@ -46,11 +46,12 @@ public class AppointmentController {
     public Result<?> getMyAppointments(
             @RequestParam(defaultValue = "1") Integer page,
             @RequestParam(defaultValue = "10") Integer size,
+            @RequestParam(required = false) String status,  // ✅ 添加 status 参数
             @RequestHeader("Authorization") String token,
             HttpServletRequest request) {
 
         Long userId = jwtUtils.getUserIdFromToken(token);
-        var result = appointmentService.getMyAppointments(page, size, userId);
+        var result = appointmentService.getMyAppointments(page, size, userId, status);  // ✅ 传递 status
         return Result.success(result);
     }
 
@@ -115,21 +116,22 @@ public class AppointmentController {
     public Result<?> getCounselorAppointments(
             @RequestParam(defaultValue = "1") Integer page,
             @RequestParam(defaultValue = "10") Integer size,
+            @RequestParam(required = false) String status,  // ✅ 添加 status 参数
             @RequestHeader("Authorization") String token) {
 
         Long userId = jwtUtils.getUserIdFromToken(token);
 
         // 根据用户ID查找咨询师ID
         LambdaQueryWrapper<Counselor> counselorWrapper = new LambdaQueryWrapper<Counselor>()
-                .eq(Counselor::getUserId, userId); // 假设Counselor表有user_id字段关联
+                .eq(Counselor::getUserId, userId);
         Counselor counselor = counselorMapper.selectOne(counselorWrapper);
 
         if (counselor == null) {
             return Result.error("当前用户不是咨询师");
         }
 
-        Long counselorId = counselor.getId(); // 获取咨询师表的ID
-        var result = appointmentService.getCounselorAppointments(page, size, counselorId);
+        Long counselorId = counselor.getId();
+        var result = appointmentService.getCounselorAppointments(page, size, counselorId, status);  // ✅ 传递 status
         return Result.success(result);
     }
 
@@ -160,4 +162,6 @@ public class AppointmentController {
         var result = appointmentService.getCounselorSchedule(date, page, size, counselorId);
         return Result.success(result);
     }
+
+
 }

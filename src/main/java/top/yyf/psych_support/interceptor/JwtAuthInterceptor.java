@@ -27,7 +27,7 @@ public class JwtAuthInterceptor implements HandlerInterceptor {
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
         String uri = request.getRequestURI();
 
-        // 公开接口：放行
+        // 公开接口放行
         if (uri.equals("/api/assessments") ||
                 uri.matches("/api/assessments/\\d+$") ||
                 uri.startsWith("/api/users/login") ||
@@ -35,15 +35,19 @@ public class JwtAuthInterceptor implements HandlerInterceptor {
             return true;
         }
 
-        // 需要认证的接口：从 Header 获取 token
         String authHeader = request.getHeader("Authorization");
         if (authHeader == null || authHeader.trim().isEmpty()) {
             response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "缺少Token");
             return false;
         }
 
-        // 提取 token（兼容 Bearer 前缀）
-        String token = authHeader.replaceFirst("(?i)Bearer\\s+", "").trim();
+        // ✅ 提取 token（兼容 Bearer 前缀）
+        String token = authHeader;
+        if (token.toLowerCase().startsWith("bearer ")) {
+            token = token.substring(7); // "Bearer ".length() = 7，注意有空格
+        }
+        token = token.trim();
+
         if (token.isEmpty()) {
             response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Token格式错误");
             return false;
@@ -51,7 +55,6 @@ public class JwtAuthInterceptor implements HandlerInterceptor {
 
         try {
             Long userId = jwtUtils.getUserIdFromToken(token);
-            // 👇 关键：设置 attribute，供 @RequestAttribute 注入
             request.setAttribute("currentUserId", userId);
             return true;
         } catch (Exception e) {

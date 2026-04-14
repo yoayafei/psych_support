@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.*;
 import top.yyf.psych_support.common.Result;
 import top.yyf.psych_support.common.ResultCode;
 import top.yyf.psych_support.model.dto.AssessmentDetailDTO;
+import top.yyf.psych_support.model.dto.AssessmentRecordDetailDTO;
 import top.yyf.psych_support.model.dto.AssessmentReportDTO;
 import top.yyf.psych_support.model.dto.SubmitAssessmentDTO;
 import top.yyf.psych_support.model.vo.AssessmentVO;
@@ -77,6 +78,19 @@ public class AssessmentController {
             @RequestAttribute("currentUserId") Long currentUserId) { // ✅ 直接注入！
         PageVO<AssessmentVO> history = assessmentService.getUserAssessmentHistory(currentUserId, page, size);
         return Result.success(history);
+    }
+
+
+    /**
+     * 获取测评记录的详细信息
+     */
+    @GetMapping("/records/{recordId}")
+    @Operation(summary = "获取测评记录的详细信息")
+    public Result<AssessmentRecordDetailDTO> getAssessmentRecordDetail(
+            @PathVariable Long recordId,
+            @RequestAttribute("currentUserId") Long currentUserId) {
+        AssessmentRecordDetailDTO detail = assessmentService.getAssessmentRecordDetail(recordId, currentUserId);
+        return Result.success(detail);
     }
 
     // ========================

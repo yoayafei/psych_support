@@ -5,8 +5,10 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import top.yyf.psych_support.entity.Appointment;
 import top.yyf.psych_support.entity.AppointmentSlot;
 import top.yyf.psych_support.entity.Counselor;
+import top.yyf.psych_support.mapper.AppointmentMapper;
 import top.yyf.psych_support.mapper.AppointmentSlotMapper;
 import top.yyf.psych_support.mapper.CounselorMapper;
 import top.yyf.psych_support.model.vo.AvailableSlotVO;
@@ -14,7 +16,9 @@ import top.yyf.psych_support.model.vo.CounselorDetailVO;
 import top.yyf.psych_support.service.ICounselorService;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -23,6 +27,7 @@ public class CounselorServiceImpl implements ICounselorService {
 
     private final CounselorMapper counselorMapper;
     private final AppointmentSlotMapper appointmentSlotMapper;
+    private final AppointmentMapper appointmentMapper;
 
     @Override
     public List<Counselor> getAllAvailableCounselors() {
@@ -39,25 +44,49 @@ public class CounselorServiceImpl implements ICounselorService {
     }
 
     @Override
-    public List<AvailableSlotVO> getAvailableSlots(Long counselorId) { // 移除 date 参数
-        // 查询该咨询师的所有可用时间段
-        QueryWrapper<AppointmentSlot> slotWrapper = new QueryWrapper<>();
-        slotWrapper.eq("counselor_id", counselorId)
-                .eq("status", 1); // 只查询状态为AVAILABLE的时间段
+    public List<AvailableSlotVO> getAvailableSlots(Long counselorId, LocalDate date) {
+        // 1. 获取该咨询师的所有时间段模板
+        List<AppointmentSlot> timeSlots = appointmentSlotMapper.selectList(
+                new LambdaQueryWrapper<AppointmentSlot>()
+                        .eq(AppointmentSlot::getCounselorId, counselorId)
+                        .eq(AppointmentSlot::getStatus, 1)  // 可用的时间段模板
+        );
 
-        List<AppointmentSlot> slots = appointmentSlotMapper.selectList(slotWrapper);
+        if (timeSlots.isEmpty()) {
+            return new ArrayList<>();
+        }
 
-        return slots.stream().map(slot -> {
+        // 2. 获取该日期已被预约的时间段ID
+        List<Appointment> bookedAppointments = appointmentMapper.selectList(
+                new LambdaQueryWrapper<Appointment>()
+                        .eq(Appointment::getCounselorId, counselorId)
+                        .eq(Appointment::getDate, date)
+                        .in(Appointment::getStatus, List.of("PENDING", "CONFIRMED"))
+        );
+
+        Set<Long> bookedSlotIds = bookedAppointments.stream()
+                .map(Appointment::getSlotId)
+                .collect(Collectors.toSet());
+
+        // 3. 获取咨询师名称
+        Counselor counselor = counselorMapper.selectById(counselorId);
+        String counselorName = counselor != null ? counselor.getName() : "";
+
+        // 4. 组装返回结果
+        List<AvailableSlotVO> slots = new ArrayList<>();
+        for (AppointmentSlot slot : timeSlots) {
             AvailableSlotVO vo = new AvailableSlotVO();
-            vo.setId(slot.getId());
-            // 注意：这里我们暂时不设置具体日期，因为这是通用时间段
-            // 在前端可能需要特殊处理，或者设置一个虚拟日期
-            vo.setStartTime(slot.getStartTime().toString());
-            vo.setEndTime(slot.getEndTime().toString());
-            vo.setIsAvailable(true); // 由于我们只查询AVAILABLE状态，所以默认为true
+            vo.setSlotId(slot.getId());
+            vo.setCounselorId(counselorId);
+            vo.setCounselorName(counselorName);
+            vo.setDate(date);
+            vo.setStartTime(slot.getStartTime());
+            vo.setEndTime(slot.getEndTime());
+            vo.setIsAvailable(!bookedSlotIds.contains(slot.getId()));
+            slots.add(vo);
+        }
 
-            return vo;
-        }).collect(Collectors.toList());
+        return slots;
     }
 
     @Override

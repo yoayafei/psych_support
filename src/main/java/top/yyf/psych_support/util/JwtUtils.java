@@ -31,12 +31,22 @@ public class JwtUtils {
 
     // 构造函数注入配置（通过 @Value）
     public JwtUtils(
-        @org.springframework.beans.factory.annotation.Value("${jwt.secret}") String secret,
-        @org.springframework.beans.factory.annotation.Value("${jwt.expiration-ms:7200000}") long expirationMs
+            @org.springframework.beans.factory.annotation.Value("${jwt.secret}") String secret,
+            @org.springframework.beans.factory.annotation.Value("${jwt.expiration-ms:7200000}") long expirationMs
     ) {
-        // 使用固定密钥（必须 ≥32 字符）
-        this.key = Keys.hmacShaKeyFor(secret.getBytes());
-        this.EXPIRATION_TIME = expirationMs; // 默认 2 小时（7200000 ms）
+        // ✅ 确保密钥至少32字节
+        byte[] keyBytes;
+        if (secret.getBytes().length < 32) {
+            // 如果密钥太短，填充到32字节
+            keyBytes = new byte[32];
+            byte[] original = secret.getBytes();
+            System.arraycopy(original, 0, keyBytes, 0, Math.min(original.length, 32));
+        } else {
+            keyBytes = secret.getBytes();
+        }
+        this.key = Keys.hmacShaKeyFor(keyBytes);
+        this.EXPIRATION_TIME = expirationMs;
+        log.info("JWT初始化完成，密钥长度: {} 字节", keyBytes.length);
     }
 
     public String generateToken(Long userId) {
@@ -59,39 +69,66 @@ public class JwtUtils {
 
     public Long getUserIdFromToken(String token) {
         try {
-            if (isTokenBlacklisted(token)) {
+            // ✅ 先清理空白字符
+            String cleanToken = token.trim().replaceAll("\\s", "");
+
+            // ✅ 移除 Bearer 前缀（如果存在）
+            if (cleanToken.startsWith("Bearer")) {
+                cleanToken = cleanToken.substring(6); // "Bearer".length() = 6
+                log.info("移除了 Bearer 前缀");
+            }
+
+            // ✅ 再次清理可能的新空白字符
+            cleanToken = cleanToken.trim();
+
+            log.info("验证Token - 清理后Token前20字符: {}",
+                    cleanToken.substring(0, Math.min(20, cleanToken.length())));
+
+            if (isTokenBlacklisted(cleanToken)) {
                 throw new RuntimeException("Token已失效，请重新登录");
             }
+
             Claims claims = Jwts.parserBuilder()
                     .setSigningKey(key)
                     .build()
-                    .parseClaimsJws(token)
+                    .parseClaimsJws(cleanToken)
                     .getBody();
-            return Long.parseLong(claims.getSubject());
+
+            Long userId = Long.parseLong(claims.getSubject());
+            log.info("Token验证成功 - 用户ID: {}", userId);
+            return userId;
         } catch (Exception e) {
+            log.error("Token验证失败: {}", e.getMessage(), e);
             throw new RuntimeException("Token验证失败: " + e.getMessage());
         }
     }
 
     public void addToBlacklist(String token) {
         try {
+            // 同样需要清理 token
+            String cleanToken = token.trim().replaceAll("\\s", "");
+            if (cleanToken.startsWith("Bearer")) {
+                cleanToken = cleanToken.substring(6);
+                cleanToken = cleanToken.trim();
+            }
+
             Claims claims = Jwts.parserBuilder()
                     .setSigningKey(key)
                     .build()
-                    .parseClaimsJws(token)
+                    .parseClaimsJws(cleanToken)
                     .getBody();
             Date expiration = claims.getExpiration();
             long ttl = expiration.getTime() - System.currentTimeMillis();
             if (ttl > 0) {
                 redisTemplate.opsForValue().set(
-                    BLACKLIST_PREFIX + token, 
-                    "logout", 
-                    ttl, 
-                    TimeUnit.MILLISECONDS
+                        BLACKLIST_PREFIX + cleanToken,
+                        "logout",
+                        ttl,
+                        TimeUnit.MILLISECONDS
                 );
                 log.info("Token已加入黑名单，剩余有效期: {} 毫秒", ttl);
             }
-            redisTemplate.delete(TOKEN_USER_PREFIX + token);
+            redisTemplate.delete(TOKEN_USER_PREFIX + cleanToken);
         } catch (Exception e) {
             log.warn("将token加入黑名单失败: {}", e.getMessage());
         }

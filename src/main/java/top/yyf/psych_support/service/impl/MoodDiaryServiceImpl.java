@@ -2,6 +2,7 @@ package top.yyf.psych_support.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import lombok.RequiredArgsConstructor;
@@ -26,7 +27,19 @@ public class MoodDiaryServiceImpl extends ServiceImpl<MoodDiaryMapper, MoodDiary
 
     @Override
     public MoodDiary createMoodDiary(MoodDiary moodDiary) {
+        // 验证必填字段
+        if (moodDiary.getContent() == null || moodDiary.getContent().trim().isEmpty()) {
+            throw new IllegalArgumentException("日记内容不能为空");
+        }
+
+        if (moodDiary.getMoodTag() == null || moodDiary.getMoodTag().trim().isEmpty()) {
+            throw new IllegalArgumentException("情绪标签不能为空");
+        }
+
         // 验证情绪等级范围
+        if (moodDiary.getMoodLevel() == null) {
+            throw new IllegalArgumentException("情绪强度不能为空");
+        }
         if (moodDiary.getMoodLevel() < 1 || moodDiary.getMoodLevel() > 5) {
             throw new IllegalArgumentException("情绪强度必须在1-5之间");
         }
@@ -88,19 +101,44 @@ public class MoodDiaryServiceImpl extends ServiceImpl<MoodDiaryMapper, MoodDiary
     public boolean updateMoodDiary(Long diaryId, MoodDiary moodDiary, Long currentUserId) {
         MoodDiary existing = moodDiaryMapper.selectById(diaryId);
         if (existing == null || !existing.getUserId().equals(currentUserId)) {
+            log.warn("更新失败: 日记不存在或不属于当前用户, diaryId={}, userId={}", diaryId, currentUserId);
             return false;
         }
 
         // 验证情绪等级范围
-        if (moodDiary.getMoodLevel() != null &&
-                (moodDiary.getMoodLevel() < 1 || moodDiary.getMoodLevel() > 5)) {
-            throw new IllegalArgumentException("情绪强度必须在1-5之间");
+        if (moodDiary.getMoodLevel() != null) {
+            if (moodDiary.getMoodLevel() < 1 || moodDiary.getMoodLevel() > 5) {
+                throw new IllegalArgumentException("情绪强度必须在1-5之间");
+            }
         }
 
-        moodDiary.setId(diaryId);
-        moodDiary.setUserId(existing.getUserId()); // 保持原始用户ID不变
+        // 使用 LambdaUpdateWrapper 进行条件更新
+        LambdaUpdateWrapper<MoodDiary> updateWrapper = new LambdaUpdateWrapper<>();
+        updateWrapper.eq(MoodDiary::getId, diaryId)
+                .eq(MoodDiary::getUserId, currentUserId);
 
-        int result = moodDiaryMapper.updateById(moodDiary);
+        // 只更新非 null 的字段
+        if (moodDiary.getMoodTag() != null) {
+            updateWrapper.set(MoodDiary::getMoodTag, moodDiary.getMoodTag());
+        }
+        if (moodDiary.getMoodLevel() != null) {
+            updateWrapper.set(MoodDiary::getMoodLevel, moodDiary.getMoodLevel());
+        }
+        if (moodDiary.getContent() != null) {
+            updateWrapper.set(MoodDiary::getContent, moodDiary.getContent());
+        }
+        if (moodDiary.getImageUrl() != null) {
+            updateWrapper.set(MoodDiary::getImageUrl, moodDiary.getImageUrl());
+        }
+        if (moodDiary.getIsPublic() != null) {
+            updateWrapper.set(MoodDiary::getIsPublic, moodDiary.getIsPublic());
+        }
+
+        // 更新时间
+        updateWrapper.set(MoodDiary::getUpdatedAt, LocalDateTime.now());
+
+        int result = moodDiaryMapper.update(null, updateWrapper);
+        log.info("更新日记结果: diaryId={}, affectedRows={}", diaryId, result);
         return result > 0;
     }
 
@@ -156,6 +194,7 @@ public class MoodDiaryServiceImpl extends ServiceImpl<MoodDiaryMapper, MoodDiary
         vo.setImageUrl(diary.getImageUrl());
         vo.setIsPublic(diary.getIsPublic());
         vo.setCreatedAt(diary.getCreatedAt());
+        vo.setUpdatedAt(diary.getUpdatedAt());
 
         // 安全地处理createdAt为null的情况
         if (diary.getCreatedAt() != null) {

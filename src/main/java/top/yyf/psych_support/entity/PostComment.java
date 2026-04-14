@@ -1,28 +1,24 @@
 package top.yyf.psych_support.entity;
 
 import com.baomidou.mybatisplus.annotation.*;
-import com.fasterxml.jackson.annotation.JsonFormat;
-import com.fasterxml.jackson.annotation.JsonGetter;
 import lombok.Data;
 
 import java.time.LocalDateTime;
 
 @Data
-@TableName("post")
-public class Post {
+@TableName("post_comment")
+public class PostComment {
     @TableId(value = "id", type = IdType.AUTO)
     private Long id;
 
-    private Long userId;
+    private Long postId; // 关联帖子ID
 
-    private String title; // 帖子标题
+    private Long userId; // 评论用户ID
 
-    private String content; // 帖子内容
+    private String content; // 评论内容
 
     @TableField("`status`") // 使用反引号避免与SQL关键字冲突
-    private Byte status; // 0=拒绝,1=待审核,2=通过
-
-    private Integer viewCount; // 浏览次数
+    private Byte status; // 审核状态
 
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createdAt;

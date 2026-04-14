@@ -23,7 +23,7 @@ public interface ICounselorService {
     /**
      * 获取咨询师某天的可预约时间段
      */
-    List<AvailableSlotVO> getAvailableSlots(Long counselorId);
+    List<AvailableSlotVO> getAvailableSlots(Long counselorId, LocalDate date);
 
     /**
      * 根据用户ID获取咨询师信息

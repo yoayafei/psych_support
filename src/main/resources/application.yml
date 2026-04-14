@@ -43,8 +43,8 @@ mybatis-plus:
 
 jwt:
   # 必须是 ≥32 字符的强密钥！可用命令生成：openssl rand -base64 32
-  secret: your_very_strong_secret_key_here_at_least_32_characters_long
+  secret: 6JzpJw4l4CEZjGGnXPb8wapw4s5ztMWMaMOw39ZKIRQ=
   # Token 有效期（毫秒），默认 2 小时
-  expiration-ms: 72000007200 # token 有效期（秒），默认 2 小时
+  expiration-ms: 7200000 # token 有效期（秒），默认 2 小时
 
 

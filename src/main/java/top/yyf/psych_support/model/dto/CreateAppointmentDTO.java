@@ -4,6 +4,8 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
+import java.time.LocalDate;
+
 @Data
 public class CreateAppointmentDTO {
     @NotNull
@@ -11,7 +13,10 @@ public class CreateAppointmentDTO {
     
     @NotNull
     private Long slotId;      // 时间段ID
-    
+
+    @NotNull
+    private LocalDate date;
+
     @NotBlank
     private String reason;    // 预约原因
     

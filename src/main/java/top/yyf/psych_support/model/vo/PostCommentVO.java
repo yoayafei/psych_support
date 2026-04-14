@@ -6,18 +6,15 @@ import lombok.Data;
 import java.time.LocalDateTime;
 
 @Data
-public class MoodDiaryVO {
+public class PostCommentVO {
     private Long id;
+    private Long postId;
     private Long userId;
-    private String nickname; // 昵称
+    private String nickname; // 用户昵称
     private String content;
-    private String moodTag;
-    private Byte moodLevel; // 情绪强度 1-5
-    private String imageUrl;
-    private Byte isPublic; // 0=私密,1=待审核,2=已公开
+    private Byte status; // 审核状态
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime createdAt;
-    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
-    private LocalDateTime updatedAt;
     private String formattedDate; // 格式化后的日期
+    private Boolean isOwner; // 是否为当前用户发表的评论
 }

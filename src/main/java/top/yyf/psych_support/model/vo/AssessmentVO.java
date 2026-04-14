@@ -9,4 +9,5 @@ public class AssessmentVO {
     private String name;
     private String description;
     private String category;
+    private Boolean isActive;
 }

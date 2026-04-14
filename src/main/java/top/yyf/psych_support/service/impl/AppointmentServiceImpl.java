@@ -48,7 +48,7 @@ public class AppointmentServiceImpl extends ServiceImpl<AppointmentMapper, Appoi
     @Transactional
     public AppointmentVO createAppointment(CreateAppointmentDTO dto, Long userId) {
         // 1. 参数校验
-        if (dto.getCounselorId() == null || dto.getSlotId() == null) {
+        if (dto.getCounselorId() == null || dto.getSlotId() == null || dto.getDate() == null) {
             throw new BusinessException("参数错误：缺少必要字段");
         }
 
@@ -58,10 +58,10 @@ public class AppointmentServiceImpl extends ServiceImpl<AppointmentMapper, Appoi
             throw new BusinessException("该咨询师不存在或已离职");
         }
 
-        // 3. 检查时间段是否存在且可用
+        // 3. 检查时间段模板是否存在且可用
         AppointmentSlot slot = appointmentSlotMapper.selectById(dto.getSlotId());
         if (slot == null || slot.getStatus() != 1) {
-            throw new BusinessException("该时间段不可预约或已被占用");
+            throw new BusinessException("该时间段模板不可用");
         }
 
         // 4. 检查时间段是否属于该咨询师
@@ -69,10 +69,18 @@ public class AppointmentServiceImpl extends ServiceImpl<AppointmentMapper, Appoi
             throw new BusinessException("时间段不属于该咨询师");
         }
 
-        // 5. 检查时间段是否已过期（不能预约过去的时间）
-        LocalDateTime slotDateTime = LocalDateTime.of(slot.getDate(), slot.getStartTime());
-        if (slotDateTime.isBefore(LocalDateTime.now().plusHours(1))) { // 至少提前1小时预约
-            throw new BusinessException("该时间段已过期，无法预约");
+        // 5. 检查预约日期是否过期（不能预约过去的时间）
+        LocalDate today = LocalDate.now();
+        if (dto.getDate().isBefore(today)) {
+            throw new BusinessException("不能预约过去的日期");
+        }
+
+        // 如果是今天，检查时间是否已过
+        if (dto.getDate().equals(today)) {
+            LocalDateTime slotDateTime = LocalDateTime.of(dto.getDate(), slot.getStartTime());
+            if (slotDateTime.isBefore(LocalDateTime.now().plusHours(1))) {
+                throw new BusinessException("该时间段已过期，请至少提前1小时预约");
+            }
         }
 
         // 6. 检查用户是否存在
@@ -81,31 +89,22 @@ public class AppointmentServiceImpl extends ServiceImpl<AppointmentMapper, Appoi
             throw new BusinessException("用户不存在");
         }
 
-        // 7. 防止并发：加锁检查并锁定时间段
+        // 7. 检查该时间段在该日期是否已被预约
         lock.lock();
         try {
-            // 再次检查时间段状态（双重检查）
-            AppointmentSlot currentSlot = appointmentSlotMapper.selectById(dto.getSlotId());
-            if (currentSlot == null || currentSlot.getStatus() != 1) {
-                throw new BusinessException("该时间段已被其他人预约，请刷新重试");
-            }
+            // 检查该时间段在该日期是否已有预约
+            int bookedCount = appointmentMapper.countByCounselorDateAndSlot(
+                    dto.getCounselorId(), dto.getDate(), dto.getSlotId());
 
-            // 检查时间段是否已满（理论上 max_appointments = 1，所以这步可能冗余）
-            int bookedCount = appointmentMapper.countBySlotId(dto.getSlotId());
-            if (bookedCount >= currentSlot.getMaxAppointments()) {
+            if (bookedCount >= slot.getMaxAppointments()) {
                 throw new BusinessException("该时间段已被预约满，请选择其他时间");
             }
 
             // 检查用户是否已在该时间段有预约
-            int userSlotCount = appointmentMapper.countByUserAndSlot(userId, dto.getSlotId());
+            int userSlotCount = appointmentMapper.countByUserAndSlotAndDate(
+                    userId, dto.getSlotId(), dto.getDate());
             if (userSlotCount > 0) {
                 throw new BusinessException("您已在此时间段有预约，请勿重复提交");
-            }
-
-            // 锁定时间段
-            int rowsAffected = appointmentSlotMapper.lockSlot(dto.getSlotId());
-            if (rowsAffected == 0) {
-                throw new BusinessException("该时间段已被他人抢先预约，请刷新重试");
             }
 
         } finally {
@@ -117,24 +116,35 @@ public class AppointmentServiceImpl extends ServiceImpl<AppointmentMapper, Appoi
         appointment.setUserId(userId);
         appointment.setCounselorId(dto.getCounselorId());
         appointment.setSlotId(dto.getSlotId());
-        appointment.setDate(slot.getDate());
+        appointment.setDate(dto.getDate());  // ✅ 使用前端传来的日期
         appointment.setStartTime(slot.getStartTime());
         appointment.setEndTime(slot.getEndTime());
-        appointment.setStatus("PENDING"); // 默认待审核
+        appointment.setStatus("PENDING");
         appointment.setReasonForAppointment(dto.getReason());
         appointment.setNotes(dto.getNotes());
 
         appointmentMapper.insert(appointment);
 
-        log.info("用户 {} 成功创建预约申请，预约ID: {}", userId, appointment.getId());
+        log.info("用户 {} 成功创建预约申请，预约ID: {}, 日期: {}", userId, appointment.getId(), dto.getDate());
 
         return getAppointmentVO(appointment, user, counselor);
     }
 
     @Override
-    public IPage<AppointmentVO> getMyAppointments(Integer page, Integer size, Long userId) {
+    public IPage<AppointmentVO> getMyAppointments(Integer page, Integer size, Long userId, String status) {
         Page<Appointment> mpPage = new Page<>(page, size);
-        IPage<Appointment> result = appointmentMapper.selectMyAppointments(mpPage, userId);
+
+        // ✅ 构建查询条件
+        LambdaQueryWrapper<Appointment> wrapper = new LambdaQueryWrapper<Appointment>()
+                .eq(Appointment::getUserId, userId)
+                .orderByDesc(Appointment::getCreatedAt);
+
+        // ✅ 如果传入了 status 参数，则按状态过滤
+        if (status != null && !status.isEmpty()) {
+            wrapper.eq(Appointment::getStatus, status);
+        }
+
+        IPage<Appointment> result = appointmentMapper.selectPage(mpPage, wrapper);
 
         return result.convert(app -> {
             User user = userMapper.selectById(app.getUserId());
@@ -144,17 +154,23 @@ public class AppointmentServiceImpl extends ServiceImpl<AppointmentMapper, Appoi
     }
 
     @Override
-    public IPage<AppointmentVO> getCounselorAppointments(Integer page, Integer size, Long counselorId) {
+    public IPage<AppointmentVO> getCounselorAppointments(Integer page, Integer size, Long counselorId, String status) {
         Page<Appointment> mpPage = new Page<>(page, size);
+
+        // ✅ 构建查询条件
         LambdaQueryWrapper<Appointment> wrapper = new LambdaQueryWrapper<Appointment>()
                 .eq(Appointment::getCounselorId, counselorId)
                 .orderByDesc(Appointment::getCreatedAt);
+
+        // ✅ 如果传入了 status 参数，则按状态过滤
+        if (status != null && !status.isEmpty()) {
+            wrapper.eq(Appointment::getStatus, status);
+        }
 
         IPage<Appointment> result = appointmentMapper.selectPage(mpPage, wrapper);
 
         return result.convert(app -> {
             User user = userMapper.selectById(app.getUserId());
-            // 注意：这里咨询师信息可以从缓存或直接从传入的counselor获取
             Counselor counselor = counselorMapper.selectById(app.getCounselorId());
             return getAppointmentVO(app, user, counselor);
         });
@@ -323,8 +339,25 @@ public class AppointmentServiceImpl extends ServiceImpl<AppointmentMapper, Appoi
         System.out.println("预约用户ID: " + appointment.getUserId());
         System.out.println("预约咨询师ID: " + appointment.getCounselorId());
 
+        // ✅ 检查是否是预约用户本人
+        boolean isOwner = appointment.getUserId().equals(currentUserId);
+
+        // ✅ 检查是否是关联的咨询师（需要先查询咨询师信息）
+        boolean isCounselor = false;
+        if (!isOwner) {
+            // 根据当前用户ID查询咨询师信息
+            LambdaQueryWrapper<Counselor> counselorWrapper = new LambdaQueryWrapper<Counselor>()
+                    .eq(Counselor::getUserId, currentUserId);
+            Counselor currentCounselor = counselorMapper.selectOne(counselorWrapper);
+
+            if (currentCounselor != null) {
+                // 比较咨询师ID
+                isCounselor = appointment.getCounselorId().equals(currentCounselor.getId());
+            }
+        }
+
         // 权限检查：必须是预约用户或相关咨询师
-        if (!appointment.getUserId().equals(currentUserId) && !appointment.getCounselorId().equals(currentUserId)) {
+        if (!isOwner && !isCounselor) {
             throw new BusinessException("无权查看此预约");
         }
 
@@ -334,16 +367,23 @@ public class AppointmentServiceImpl extends ServiceImpl<AppointmentMapper, Appoi
     }
 
     // 辅助方法：将实体转换为VO
+    // 辅助方法：将实体转换为VO
     private AppointmentVO getAppointmentVO(Appointment app, User user, Counselor counselor) {
         AppointmentVO vo = new AppointmentVO();
         BeanUtils.copyProperties(app, vo);
+
+        // ✅ 设置用户信息
         if (user != null) {
-            vo.setUserName(user.getNickname()); // 假设User有nickname
+            vo.setUserName(user.getNickname());  // 设置用户昵称
+            vo.setUserId(user.getId());          // 设置用户ID
         }
+
+        // ✅ 设置咨询师信息
         if (counselor != null) {
             vo.setCounselorName(counselor.getName());
             vo.setCounselorTitle(counselor.getTitle());
         }
+
         return vo;
     }
 }

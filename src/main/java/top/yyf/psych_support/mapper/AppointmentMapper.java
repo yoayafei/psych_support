@@ -4,6 +4,7 @@ package top.yyf.psych_support.mapper;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import jakarta.validation.constraints.NotNull;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
@@ -57,4 +58,18 @@ public interface AppointmentMapper extends BaseMapper<Appointment> {
      */
     @Select("SELECT * FROM appointments WHERE status = 'CONFIRMED' AND start_time BETWEEN #{startTime} AND #{endTime}")
     List<Appointment> selectUpcomingAppointments(@Param("startTime") LocalDateTime startTime, @Param("endTime") LocalDateTime endTime);
+
+    @Select("SELECT COUNT(*) FROM appointments WHERE counselor_id = #{counselorId} AND date = #{date} AND slot_id = #{slotId} AND status IN ('PENDING', 'CONFIRMED')")
+    int countByCounselorDateAndSlot(@Param("counselorId") Long counselorId,
+                                    @Param("date") LocalDate date,
+                                    @Param("slotId") Long slotId);
+
+    @Select("SELECT COUNT(*) FROM appointments WHERE user_id = #{userId} AND slot_id = #{slotId} AND date = #{date} AND status IN ('PENDING', 'CONFIRMED')")
+    int countByUserAndSlotAndDate(@Param("userId") Long userId,
+                                  @Param("slotId") Long slotId,
+                                  @Param("date") LocalDate date);
+
+
+    @Select("SELECT * FROM appointments WHERE counselor_id = #{counselorId} AND date = #{date} AND status IN ('PENDING', 'CONFIRMED')")
+    List<Appointment> findBookedByCounselorAndDate(@Param("counselorId") Long counselorId, @Param("date") LocalDate date);
 }

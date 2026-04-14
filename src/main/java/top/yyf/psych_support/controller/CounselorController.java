@@ -4,6 +4,7 @@ package top.yyf.psych_support.controller;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.*;
 import top.yyf.psych_support.common.Result;
 import top.yyf.psych_support.model.vo.AvailableSlotVO;
@@ -40,8 +41,10 @@ public class CounselorController {
 
     @Operation(summary = "获取咨询师某天的可预约时间段")
     @GetMapping("/{id}/slots")
-    public Result<List<AvailableSlotVO>> getAvailableSlots(@PathVariable Long id) {
-        List<AvailableSlotVO> slots = counselorService.getAvailableSlots(id);
+    public Result<List<AvailableSlotVO>> getAvailableSlots(
+            @PathVariable Long id,
+            @RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate date) {  // ✅ 添加 date 参数
+        List<AvailableSlotVO> slots = counselorService.getAvailableSlots(id, date);
         return Result.success(slots);
     }
 }

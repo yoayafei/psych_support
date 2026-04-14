@@ -3,6 +3,7 @@ package top.yyf.psych_support.service;
 
 import top.yyf.psych_support.entity.Assessment;
 import top.yyf.psych_support.model.dto.AssessmentDetailDTO;
+import top.yyf.psych_support.model.dto.AssessmentRecordDetailDTO;
 import top.yyf.psych_support.model.dto.AssessmentReportDTO;
 import top.yyf.psych_support.model.dto.SubmitAssessmentDTO;
 import top.yyf.psych_support.model.vo.AssessmentVO;
@@ -31,4 +32,7 @@ public interface AssessmentService {
      * 分页查询用户测评历史
      */
     PageVO<AssessmentVO> getUserAssessmentHistory(Long userId, int page, int size);
+
+    // 在 AssessmentService.java 中添加
+    AssessmentRecordDetailDTO getAssessmentRecordDetail(Long recordId, Long userId);
 }

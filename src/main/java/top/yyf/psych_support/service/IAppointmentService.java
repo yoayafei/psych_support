@@ -18,13 +18,11 @@ public interface IAppointmentService {
     /**
      * 获取我的预约记录（分页）
      */
-    IPage<AppointmentVO> getMyAppointments(Integer page, Integer size, Long userId);
-
+    IPage<AppointmentVO> getMyAppointments(Integer page, Integer size, Long userId, String status);
     /**
      * 获取咨询师的预约记录（分页）
      */
-    IPage<AppointmentVO> getCounselorAppointments(Integer page, Integer size, Long counselorId);
-
+    IPage<AppointmentVO> getCounselorAppointments(Integer page, Integer size, Long counselorId, String status);
     /**
      * 用户取消预约
      */

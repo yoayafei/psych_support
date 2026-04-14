@@ -17,9 +17,6 @@ public class AppointmentSlot {
     @TableField("counselor_id")
     private Long counselorId; // 关联咨询师
 
-    @TableField("date")
-    private LocalDate date; // 日期
-
     @TableField("start_time")
     private LocalTime startTime; // 开始时间
 
